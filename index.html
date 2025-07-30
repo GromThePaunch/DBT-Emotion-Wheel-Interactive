@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive Plutchik Emotion Wheel</title>
+<style>
+  body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+  #wheel-container { max-width: 450px; margin: auto; }
+  svg { width: 100%; height: auto; }
+  .sector { cursor: pointer; transition: opacity 0.3s; }
+  .sector:hover { opacity: 0.8; }
+  text { font-size: 12px; pointer-events: none; }
+</style>
+</head>
+<body>
+<p>Use this wheel to identify emotions when it's hard to name them. Tap/click to confirm—great for DBT emotion regulation.</p>
+<div id="wheel-container">
+<svg id="emotion-wheel" viewBox="0 0 400 400" aria-label="Plutchik's Wheel of Emotions" role="img"></svg>
+</div>
+<script>
+(function(){
+  const cx = 200, cy = 200;
+  const layers = {
+    mild:  { inner: 150, outer: 200 },
+    base:  { inner: 100, outer: 150 },
+    intense:{ inner: 50,  outer: 100 }
+  };
+  const emotions = [
+    {name:'Joy', color:'#FFD93D', intense:'Ecstasy', mild:'Serenity'},
+    {name:'Trust', color:'#6CC644', intense:'Admiration', mild:'Acceptance'},
+    {name:'Fear', color:'#A0E37C', intense:'Terror', mild:'Apprehension'},
+    {name:'Surprise', color:'#4FC3F7', intense:'Amazement', mild:'Distraction'},
+    {name:'Sadness', color:'#1976D2', intense:'Grief', mild:'Pensiveness'},
+    {name:'Disgust', color:'#8E24AA', intense:'Loathing', mild:'Boredom'},
+    {name:'Anger', color:'#E53935', intense:'Rage', mild:'Annoyance'},
+    {name:'Anticipation', color:'#FB8C00', intense:'Vigilance', mild:'Interest'}
+  ];
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const wheel = document.getElementById('emotion-wheel');
+
+  function adjustColor(hex, percent){
+    let num = parseInt(hex.replace('#',''),16);
+    let r = (num>>16), g = (num>>8)&0x00FF, b = num&0x0000FF;
+    if(percent < 0){
+      r = Math.round(r*(1+percent));
+      g = Math.round(g*(1+percent));
+      b = Math.round(b*(1+percent));
+    }else{
+      r = Math.round(r + (255 - r)*percent);
+      g = Math.round(g + (255 - g)*percent);
+      b = Math.round(b + (255 - b)*percent);
+    }
+    return '#' + (1<<24 | r<<16 | g<<8 | b).toString(16).slice(1);
+  }
+
+  function polarToCartesian(r, angle){
+    return [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
+  }
+
+  function createArc(rOuter, rInner, startAngle, endAngle){
+    const [x1, y1] = polarToCartesian(rOuter, startAngle);
+    const [x2, y2] = polarToCartesian(rOuter, endAngle);
+    const [x3, y3] = polarToCartesian(rInner, endAngle);
+    const [x4, y4] = polarToCartesian(rInner, startAngle);
+    return `M${x1},${y1} A${rOuter},${rOuter} 0 0,1 ${x2},${y2} L${x3},${y3} A${rInner},${rInner} 0 0,0 ${x4},${y4} Z`;
+  }
+
+  const step = Math.PI * 2 / emotions.length;
+  const offset = -Math.PI / 2; // rotate so first emotion is at top
+
+  emotions.forEach((e, i)=>{
+    const start = offset + i*step;
+    const end = offset + (i+1)*step;
+    // mild ring
+    const pathMild = document.createElementNS(svgNS,'path');
+    pathMild.setAttribute('d', createArc(layers.mild.outer, layers.mild.inner, start, end));
+    pathMild.setAttribute('fill', adjustColor(e.color,0.4));
+    wheel.appendChild(pathMild);
+    // base ring
+    const pathBase = document.createElementNS(svgNS,'path');
+    pathBase.setAttribute('d', createArc(layers.base.outer, layers.base.inner, start, end));
+    pathBase.setAttribute('fill', e.color);
+    pathBase.classList.add('sector');
+    pathBase.setAttribute('role','button');
+    pathBase.setAttribute('tabindex','0');
+    pathBase.setAttribute('aria-label', e.name);
+    pathBase.dataset.emotion = e.name;
+    pathBase.dataset.intense = e.intense;
+    pathBase.dataset.mild = e.mild;
+    wheel.appendChild(pathBase);
+    // intense ring
+    const pathIntense = document.createElementNS(svgNS,'path');
+    pathIntense.setAttribute('d', createArc(layers.intense.outer, layers.intense.inner, start, end));
+    pathIntense.setAttribute('fill', adjustColor(e.color,-0.3));
+    wheel.appendChild(pathIntense);
+    // label
+    const labelAngle = start + step/2;
+    const [tx, ty] = polarToCartesian((layers.base.outer + layers.base.inner)/2, labelAngle);
+    const text = document.createElementNS(svgNS,'text');
+    text.setAttribute('x', tx);
+    text.setAttribute('y', ty);
+    text.textContent = e.name;
+    wheel.appendChild(text);
+  });
+
+  wheel.addEventListener('pointerdown', function(evt){
+    const target = evt.target.closest('.sector');
+    if(!target) return;
+    const emotion = target.dataset.emotion;
+    const intense = target.dataset.intense;
+    const mild = target.dataset.mild;
+    alert(`Is '${emotion}' the right fit for your thoughts? (Intense: ${intense}, Mild: ${mild}) Reflect: Does this match your current moment?`);
+  });
+})();
+</script>
+</body>
+</html>
